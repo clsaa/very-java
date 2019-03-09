@@ -4,7 +4,7 @@
 
 [image](https://clsaa-markdown-imgbed-1252032169.cos.ap-shanghai.myqcloud.com/very-java/2019-03-07-103237.png)
 
-HashMap 是应用更加广泛的哈希表实现，行为上大致上与 HashTable 一致，主要区别在于 HashMap 不是同步的，支持 null 键和值。
+HashMap 是应用更加广泛的哈希表实现，行为上大致上与 HashTable 一致，主要区别在于 HashMap 不是同步的，支持 null 键和值, 而Hashtable则不能(原因就是equlas()方法需要对象，因为HashMap是后出的API经过处理才可以)。
 
 通常情况下，HashMap 进行 put 或者 get 操作，可以达到常数时间的性能，所以它是绝大部分利用键值对存取场景的首选
 
@@ -16,8 +16,6 @@ HashMap默认容量为16，且要求容量一定为2的整数次幂，HashMap扩
 public class HashMap<K,V> extends AbstractMap<K,V>
     implements Map<K,V>, Cloneable, Serializable {}
 ```
-
-
 
 ## 2.HashMap实现原理
 
@@ -271,6 +269,13 @@ final V putVal(int hash, K key, V value, boolean onlyIfAbsent,
         return putVal(hash(key), key, value, true, true);
     }
 ```
+
+1. 对Key求Hash值，然后再计算下标
+2. 如果没有碰撞，直接放入桶中（碰撞的意思是计算得到的Hash值相同，需要放到同一个bucket中）
+3. 如果碰撞了，以链表的方式链接到后面
+4. 如果链表长度超过阀值( TREEIFY THRESHOLD==8)，就把链表转成红黑树，链表长度低于6，就把红黑树转回链表
+5. 如果节点已经存在就替换旧值
+6. 如果桶满了(容量16*加载因子0.75)，就需要 resize（扩容2倍后重排）
 
 ### 3.2.2.Java7put方法
 
@@ -696,6 +701,10 @@ final TreeNode<K,V> find(int h, Object k, Class<?> kc) {
 
 find的逻辑与putTreeVal的查找逻辑十分类似，也是通过比较符、compareTo方法，递归调用find来查找，不同的是，这里不使用System.identityHashCode来比较了。
 
+当我们调用get()方法，HashMap会使用键对象的hashcode找到bucket位置，找到bucket位置之后，会调用keys.equals()方法去找到链表中正确的节点，最终找到要找的值对象。
+
+![](https://clsaa-markdown-imgbed-1252032169.cos.ap-shanghai.myqcloud.com/very-java/2019-03-09-053527.png)
+
 ## 3.8.遍历分析
 
 HashMap的遍历方式与Map的一样，有三种遍历方式，分别为:key的遍历，value的遍历，Entry(K/V对)的遍历。三者的实现一致，下面以key的遍历为例进行分析。
@@ -768,3 +777,45 @@ final class EntryIterator extends HashIterator
     }
 ```
 
+## 3.9.有什么方法可以减少碰撞
+
+* 扰动函数可以减少碰撞，原理是如果两个不相等的对象返回不同的hashcode的话，那么碰撞的几率就会小些，这就意味着存链表结构减小，这样取值的话就不会频繁调用equal方法，这样就能提高HashMap的性能。（扰动即Hash方法内部的算法实现，目的是让不同对象返回不同hashcode。）
+
+* 使用不可变的、声明作final的对象，并且采用合适的equals()和hashCode()方法的话，将会减少碰撞的发生。不可变性使得能够缓存不同键的hashcode，这将提高整个获取对象的速度，使用String，Interger这样的wrapper类作为键是非常好的选择。为什么String, Interger这样的wrapper类适合作为键？因为String是final的，而且已经重写了equals()和hashCode()方法了。不可变性是必要的，因为为了要计算hashCode()，就要防止键值改变，如果键值在放入时和获取时返回不同的hashcode的话，那么就不能从HashMap中找到你想要的对象。
+
+## 3.10.拉链法导致的链表过深问题为什么不用二叉查找树代替，而选择红黑树？为什么不一直使用红黑树？
+
+之所以选择红黑树是为了解决二叉查找树的缺陷，二叉查找树在特殊情况下会变成一条线性结构（这就跟原来使用链表结构一样了，造成很深的问题），遍历查找会非常慢。而红黑树在插入新数据后可能需要通过左旋，右旋、变色这些操作来保持平衡，引入红黑树就是为了查找数据快，解决链表查询深度的问题，我们知道红黑树属于平衡二叉树，但是为了保持“平衡”是需要付出代价的，但是该代价所损耗的资源要比遍历线性链表要少，所以当长度大于8的时候，会使用红黑树，如果链表长度很短的话，根本不需要引入红黑树，引入反而会慢。
+
+## 3.11.说说你对红黑树的见解
+
+![image](https://clsaa-markdown-imgbed-1252032169.cos.ap-shanghai.myqcloud.com/very-java/2019-03-09-053918.png)
+
+1. 每个节点非红即黑
+2. 根节点总是黑色的
+3. 如果节点是红色的，则它的子节点必须是黑色的（反之不一定）
+4. 每个叶子节点都是黑色的空节点（NIL节点）
+5. 从根节点到叶节点或空子节点的每条路径，必须包含相同数目的黑色节点（即相同的黑色高度）
+
+
+## 3.12.重新调整HashMap大小存在什么问题吗
+
+* 当重新调整HashMap大小的时候，确实存在条件竞争，因为如果两个线程都发现HashMap需要重新调整大小了，它们会同时试着调整大小。在调整大小的过程中，存储在链表中的元素的次序会反过来，因为移动到新的bucket位置的时候，HashMap并不会将元素放在链表的尾部，而是放在头部，这是为了避免尾部遍历(tail traversing)。如果条件竞争发生了，那么就死循环了。(多线程的环境下不使用HashMap）
+* 为什么多线程会导致死循环，它是怎么发生的？
+
+HashMap的容量是有限的。当经过多次元素插入，使得HashMap达到一定饱和度时，Key映射位置发生冲突的几率会逐渐提高。这时候，HashMap需要扩展它的长度，也就是进行Resize。1.扩容：创建一个新的Entry空数组，长度是原数组的2倍。2.ReHash：遍历原Entry数组，把所有的Entry重新Hash到新数组。
+
+## 3.13.对比HashTable
+
+* 数组 + 链表方式存储
+* 默认容量： 11(质数 为宜)
+* put:
+  * 索引计算 : （key.hashCode() & 0x7FFFFFFF）% table.length
+  * 若在链表中找到了，则替换旧值，若未找到则继续
+  * 当总元素个数超过容量*加载因子时，扩容为原来 2 倍并重新散列。
+  * 将新元素加到链表头部
+  * 对修改 Hashtable 内部共享数据的方法添加了 synchronized，保证线程安全。
+
+* 默认容量不同。扩容不同
+* 线程安全性，HashTable 安全
+* 效率不同 HashTable 要慢因为加锁
