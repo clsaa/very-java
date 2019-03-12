@@ -64,8 +64,6 @@ static final class TreeNode<K,V> extends LinkedHashMap.Entry<K,V> {
 }
 ```
 
-
-
 ## 2.2.HashMap的重要属性
 
 
@@ -196,7 +194,7 @@ i = (n - 1) & hash
 
 ### 3.2.1.Java8put方法
 
-```
+```java
 
 public V put(K key, V value) {
     return putVal(hash(key), key, value, false, true);
