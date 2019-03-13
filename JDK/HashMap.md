@@ -107,7 +107,7 @@ transient int modCount;//被修改的次数,用于快速失败，由于HashMap�
 
 ## 2.3.构造方法
 
-```
+```java
 public HashMap(int initialCapacity, float loadFactor) {
     if (initialCapacity < 0)
         throw new IllegalArgumentException("Illegal initial capacity: " +
@@ -805,15 +805,29 @@ HashMap的容量是有限的。当经过多次元素插入，使得HashMap达到
 
 ## 3.13.对比HashTable
 
-* 数组 + 链表方式存储
-* 默认容量： 11(质数 为宜)
-* put:
-  * 索引计算 : （key.hashCode() & 0x7FFFFFFF）% table.length
-  * 若在链表中找到了，则替换旧值，若未找到则继续
-  * 当总元素个数超过容量*加载因子时，扩容为原来 2 倍并重新散列。
-  * 将新元素加到链表头部
-  * 对修改 Hashtable 内部共享数据的方法添加了 synchronized，保证线程安全。
-
-* 默认容量不同。扩容不同
-* 线程安全性，HashTable 安全
+* 默认容量不同
+  * Hashtabl:11
+  * HashMap:16
+* 扩容不同
+  * hashtable: newCapacity = oldCapacity * 2 + 1
+  * hashmap: newCap = oldCap << 1
+* 处理Hash冲突
+  * Hashtable:拉链
+  * HashMap:拉链+树化
+  * hashtable:put冲突时添加到链表头部
+  * hashmap:put冲突时添加到链表尾部
+* 内部数据结构不同
+  * Hashtable:Entry
+  * HashMap:Node->TreeNode
+* 线程安全性
+  * HashTable:线程安全
+  * HashMap:线程不安全
 * 效率不同 HashTable 要慢因为加锁
+* Hash计算方法不一样
+  * hashtable:key.hashCode() & 0x7FFFFFFF
+  * hashmap:
+    * java8:(key == null) ? 0 : (h = key.hashCode()) ^ (h >>> 16)
+    * java7:h ^= k.hashCode(); h ^= (h >>> 20) ^ (h >>> 12);return h ^ (h >>> 7) ^ (h >>> 4);
+* 索引计算方式不同
+  * Hashtable: hash % table.length
+  * HashMap: hash & (length-1). 因为length为2^n，所以length-1换算成二进制，其全部位数均为1。按位与计算的原则是两位同时为“1”，结果才为“1”，否则为“0”。所以对于计算表达式h & （length-1）来说，等同于返回h的低（length-1）位，与h%length相同，但是快很多。
