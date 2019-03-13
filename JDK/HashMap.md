@@ -281,22 +281,22 @@ final V putVal(int hash, K key, V value, boolean onlyIfAbsent,
 ```java
 public V put(K key, V value) {
      // 若“key为null”，则将该键值对添加到table[0]中。
-         if (key == null) 
-            return putForNullKey(value);
+    if (key == null) 
+        return putForNullKey(value);
      // 若“key不为null”，则计算该key的哈希值，然后将其添加到该哈希值对应的链表中。
-         int hash = hash(key.hashCode());
+    int hash = hash(key.hashCode());
      //搜索指定hash值在对应table中的索引
-         int i = indexFor(hash, table.length);
+    int i = indexFor(hash, table.length);
      // 循环遍历Entry数组,若“该key”对应的键值对已经存在，则用新的value取代旧的value。然后退出！
-         for (Entry<K,V> e = table[i]; e != null; e = e.next) { 
-             Object k;
-              if (e.hash == hash && ((k = e.key) == key || key.equals(k))) { //如果key相同则覆盖并返回旧值
-                  V oldValue = e.value;
-                 e.value = value;
-                 e.recordAccess(this);
-                 return oldValue;
-              }
-         }
+    for (Entry<K,V> e = table[i]; e != null; e = e.next) { 
+        Object k;
+        if (e.hash == hash && ((k = e.key) == key || key.equals(k))) { //如果key相同则覆盖并返回旧值
+            V oldValue = e.value;
+            e.value = value;
+            e.recordAccess(this);
+            return oldValue;
+        }
+    }
      //修改次数+1
          modCount++;
      //将key-value添加到table[i]处
@@ -349,6 +349,28 @@ private V putForNullKey(V value) {
 ```
 
 - 这个我们要重点说下，我们一般对哈希表的散列很自然地会想到用hash值对length取模（即除法散列法），Hashtable中也是这样实现的，这种方法基本能保证元素在哈希表中散列的比较均匀，但取模会用到除法运算，效率很低，HashMap中则通过h&(length-1)的方法来代替取模，同样实现了均匀的散列，但效率要高很多，这也是HashMap对Hashtable的一个改进。
+
+```java
+void addEntry(int hash, K key, V value, int bucketIndex) {
+        if ((size >= threshold) && (null != table[bucketIndex])) {
+            resize(2 * table.length);
+            hash = (null != key) ? hash(key) : 0;
+            bucketIndex = indexFor(hash, table.length);
+        }
+
+        createEntry(hash, key, value, bucketIndex);
+    }
+```
+可以看到jdk7中resize的条件已经发生改变了，只有当 size>=threshold并且 table中的那个槽中已经有Entry时，才会发生resize。即有可能虽然size>=threshold，但是必须等到每个槽都至少有一个Entry时，才会扩容。还有注意每次resize都会扩大一倍容量
+
+```java
+void createEntry(int hash, K key, V value, int bucketIndex) {
+        Entry<K,V> e = table[bucketIndex];
+        table[bucketIndex] = new Entry<>(hash, key, value, e);
+        size++;
+    }
+```
+最后看createEntry，它先保存这个桶中的第一个Entry，创建新的Entry放入第一个位置，将原来的Entry接在后面。这里采用的是头插法插入元素
 
 ## 3.3.解决扩容问题
 
@@ -803,7 +825,7 @@ final class EntryIterator extends HashIterator
 
 HashMap的容量是有限的。当经过多次元素插入，使得HashMap达到一定饱和度时，Key映射位置发生冲突的几率会逐渐提高。这时候，HashMap需要扩展它的长度，也就是进行Resize。1.扩容：创建一个新的Entry空数组，长度是原数组的2倍。2.ReHash：遍历原Entry数组，把所有的Entry重新Hash到新数组。
 
-## 3.13.对比HashTable
+## 4.对比HashTable
 
 * 默认容量不同
   * Hashtabl:11
@@ -831,3 +853,26 @@ HashMap的容量是有限的。当经过多次元素插入，使得HashMap达到
 * 索引计算方式不同
   * Hashtable: hash % table.length
   * HashMap: hash & (length-1). 因为length为2^n，所以length-1换算成二进制，其全部位数均为1。按位与计算的原则是两位同时为“1”，结果才为“1”，否则为“0”。所以对于计算表达式h & （length-1）来说，等同于返回h的低（length-1）位，与h%length相同，但是快很多。
+
+## 5.对比Java8和Java7的实现
+
+* 数据对象
+  * Java7 Entry
+  * Java8 Node->TreeNode
+* 树化
+  * Java7冲突时只操作一个链表
+  * Java8当链表大于8时树化小于6时链表化,转化为树时最小容量为64
+* 链表操作
+  * Java7从头插入
+  * Java8从尾部插入
+* resize触发
+  * Java7中resize，只有当 size>=threshold并且 table中的那个槽中已经有Entry时，才会发生resize。即有可能虽然size>=threshold，但是必须等到每个槽都至少有一个Entry时，才会扩容。还有注意每次resize都会扩大一倍容量
+* indefFor
+  * Java7中调用方法计算index
+  * java8中直接使用(tab.length-1)&hash
+* hash计算方法不同
+  * Java7中 h ^= k.hashCode(); h ^= (h >>> 20) ^ (h >>> 12)return h ^ (h >>> 7) ^ (h >>> 4);
+  * Java8中(key == null) ? 0 : (h = key.hashCode()) ^ (h >>> 16)
+* 对null key处理
+  * Java7中通过一个单独的函数进行处理
+  * Java8中统一化
