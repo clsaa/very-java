@@ -199,3 +199,179 @@ public final int getAndIncrement() {
 1. ABA问题，如果V的初始值是A，在准备赋值的时候检查到它仍然是A，那么能说它没有改变过吗？也许V经历了这样一个过程：它先变成了B，又变成了A，使用CAS检查时以为它没变，其实却变里；
 2. 循环时间长，开销大，通过自旋CAS一直在消耗CPU
 3. 只能保证一个共享变量的原子操作，当对多个共享变量操作时就无法保证原子性了。
+
+## 4.Java7实现
+
+Java7中代码看起来冗余一点,大概是unsafe没提供那么强的操作能力
+
+```java
+package com.java.source;  
+  
+import sun.misc.Unsafe;  
+  
+public class AtomicInteger extends Number implements java.io.Serializable {  
+    private static final long serialVersionUID = 6214790243416807050L;  
+  
+    //使用Unsafe.compareAndSwapInt来执行修改操作，CAS是通过Unsafe.compareAndSwapXXX()方法实现的  
+    private static final Unsafe unsafe = Unsafe.getUnsafe();  
+    //value在内存中的地址偏移量  
+    private static final long valueOffset;  
+  
+    static {  
+      try {  
+        //获得value的内存地址偏移量  
+        valueOffset = unsafe.objectFieldOffset  
+            (AtomicInteger.class.getDeclaredField("value"));  
+      } catch (Exception ex) { throw new Error(ex); }  
+    }  
+    //当前对象代表的值，注意是volatile  
+    private volatile int value;  
+  
+    /*使用给定的值创建对象，也就是把给定的值包装起来*/  
+    public AtomicInteger(int initialValue) {  
+        value = initialValue;  
+    }  
+  
+    /*默认初始化为0*/  
+    public AtomicInteger() {  
+    }  
+      
+    /*getter/setter*/  
+    public final int get() {  
+        return value;  
+    }  
+    public final void set(int newValue) {  
+        value = newValue;  
+    }  
+  
+    /*最后设置指定的值*/  
+    public final void lazySet(int newValue) {  
+        unsafe.putOrderedInt(this, valueOffset, newValue);  
+    }  
+  
+   /*原子操作：设定新值，返回旧值，通过CAS完成*/  
+    public final int getAndSet(int newValue) {  
+        for (;;) {  
+            int current = get();  
+            if (compareAndSet(current, newValue))  
+                return current;  
+        }  
+    }  
+  
+    /** 
+     * 原子操作 
+     * CAS:Compare-and-Swap 
+     * 如果当前值==expect，则设置新值 
+     */  
+    public final boolean compareAndSet(int expect, int update) {  
+        return unsafe.compareAndSwapInt(this, valueOffset, expect, update);  
+    }  
+  
+    /** 
+     * 原子操作，功能与compareAndSet一样 
+     * 有可能意外失败，且不保证排序，但是调用的代码是完全一样的，JVM又在内部做了手脚？ 
+     * 在极少情况下用来替代compareAndSet 
+     */  
+    public final boolean weakCompareAndSet(int expect, int update) {  
+        return unsafe.compareAndSwapInt(this, valueOffset, expect, update);  
+    }  
+  
+    /** 
+     * 原子操作，实现自增操作，通过CAS实现，返回自增之前的值 
+     * 实现原理是这样的： 
+     * 1.首先获得当前值，保存到current中，next=current + 1 
+     * 2.如果CAS成功，则返回current 
+     *   如果CAS不成功，这说明刚刚有其他的线程修改了当前值，current已经失效了，next也已经失效了 
+     *   只能重新获取当值，并继续CAS，直到成功为止 
+     */  
+    public final int getAndIncrement() {  
+        for (;;) {  
+            int current = get();  
+            int next = current + 1;  
+            if (compareAndSet(current, next))  
+                return current;  
+        }  
+    }  
+  
+    /** 
+     * 原子操作，实现自减，通过CAS实现，返回当前值 
+     * 实现方法同getAndIncrement()相同 
+     */  
+    public final int getAndDecrement() {  
+        for (;;) {  
+            int current = get();  
+            int next = current - 1;  
+            if (compareAndSet(current, next))  
+                return current;  
+        }  
+    }  
+  
+    /** 
+     * 原子操作，将当前值增加delta，并返回当前值 
+     * 实现原理同getAndIncrement()相同，只不过一个是增1，一个是增delta 
+     */  
+    public final int getAndAdd(int delta) {  
+        for (;;) {  
+            int current = get();  
+            int next = current + delta;  
+            if (compareAndSet(current, next))  
+                return current;  
+        }  
+    }  
+  
+    /*原子操作，自增一，并返回增加后的值*/  
+    public final int incrementAndGet() {  
+        for (;;) {  
+            int current = get();  
+            int next = current + 1;  
+            if (compareAndSet(current, next))  
+                return next;  
+        }  
+    }  
+  
+   /*原子操作，自减，并返回减小后的值*/  
+    public final int decrementAndGet() {  
+        for (;;) {  
+            int current = get();  
+            int next = current - 1;  
+            if (compareAndSet(current, next))  
+                return next;  
+        }  
+    }  
+  
+    /*原子操作，增加delta，并返回增加后的操作*/  
+    public final int addAndGet(int delta) {  
+        for (;;) {  
+            int current = get();  
+            int next = current + delta;  
+            if (compareAndSet(current, next))  
+                return next;  
+        }  
+    }  
+  
+   /** 
+    * 一些常规方法 
+    */  
+    public String toString() {  
+        return Integer.toString(get());AtomicLong  
+    }  
+  
+      
+    public int intValue() {  
+        return get();  
+    }  
+  
+    public long longValue() {  
+        return (long)get();  
+    }  
+  
+    public float floatValue() {  
+        return (float)get();  
+    }  
+  
+    public double doubleValue() {  
+        return (double)get();  
+    }  
+  
+}  
+```
