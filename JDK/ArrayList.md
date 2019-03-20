@@ -480,7 +480,7 @@ list.forEach(s -> System.out.print(s + "!!")); //输出：有村架纯!!桥本�
 
 #### 4.5.2.removeIf方法
 
-```
+```java
 /**
   * Removes all of the elements of this collection that satisfy the given
   * predicate.  Errors or runtime exceptions thrown during iteration or by
