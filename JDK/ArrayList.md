@@ -961,3 +961,14 @@ public static final int SIZED      = 0x00000040;        //元素可以计数
 public static final int SORTED     = 0x00000004;     //元素是有序的
 public static final int SUBSIZED   = 0x00004000;
 ```
+
+## 6.ArrayList和LinkedList的区别
+
+* ArrayList是实现了基于数组的数据结构，LinkedList基于双向链表的数据结构。 
+* 对于随机访问get和set，ArrayList觉得优于LinkedList，因为LinkedList要移动指针。
+* 对于新增和删除操作add和remove(要根据实际的操作分析)，LinedList比较占优势，因为ArrayList要移动数据, 实际remove中,LinkedList也要从前往后开始查找;LinkedList的remove(int)和remove(Object)的方法的时间复杂度都是O(n),不是O(1).因为会有一个查找的过程。LinkedList的remove(int)要优于remove(Object)，因为remove(int)在查找的时候，会从链表的中间查找，如果int比中间小，找前半部分，否则找后半部分（类似二分查找）
+* ArrayList需要扩容, 需要连续内存, 开销在于copy array, LinkedList不需要
+* ArrayList实现RamdomAccess接口,可以随机访问
+* LinkedList实现了Deque, 具有双端队列的功能
+* ArrayList的增删比LinkedList的开销更大，因为除了有查找的时间复杂度外，还有增删的移动过程。
+
