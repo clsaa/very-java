@@ -825,7 +825,8 @@ final class EntryIterator extends HashIterator
 
 HashMap的容量是有限的。当经过多次元素插入，使得HashMap达到一定饱和度时，Key映射位置发生冲突的几率会逐渐提高。这时候，HashMap需要扩展它的长度，也就是进行Resize。1.扩容：创建一个新的Entry空数组，长度是原数组的2倍。2.ReHash：遍历原Entry数组，把所有的Entry重新Hash到新数组。
 
-## 4.对比HashTable
+## 4.
+
 
 * 默认容量不同
   * Hashtabl:11
