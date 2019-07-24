@@ -1,0 +1,37 @@
+// Decompiled by Jad v1.5.8g. Copyright 2001 Pavel Kouznetsov.
+// Jad home page: http://www.kpdus.com/jad.html
+// Decompiler options: packimports(3) 
+// Source File Name:   EnumSerialization.java
+
+
+public final class EnumSerialization extends Enum
+{
+
+    public static EnumSerialization[] values()
+    {
+        return (EnumSerialization[])$VALUES.clone();
+    }
+
+    public static EnumSerialization valueOf(String s)
+    {
+        return (EnumSerialization)Enum.valueOf(EnumSerialization, s);
+    }
+
+    private EnumSerialization(String s, int i)
+    {
+        super(s, i);
+    }
+
+    public static final EnumSerialization LIGHT;
+    public static final EnumSerialization DARK;
+    private static final EnumSerialization $VALUES[];
+
+    static 
+    {
+        LIGHT = new EnumSerialization("LIGHT", 0);
+        DARK = new EnumSerialization("DARK", 1);
+        $VALUES = (new EnumSerialization[] {
+            LIGHT, DARK
+        });
+    }
+}
